@@ -67,18 +67,13 @@ impl Gpu {
         };
         let surface_config = Mutex::new(surface_config);
 
-        let gpu = Self {
+        Self {
             instance,
             device,
             queue,
             surface,
             surface_config,
-        };
-
-        gpu.surface
-            .configure(&gpu.device, &gpu.surface_config.lock().unwrap());
-
-        gpu
+        }
     }
 
     pub fn resize(&self, width: u32, height: u32) {

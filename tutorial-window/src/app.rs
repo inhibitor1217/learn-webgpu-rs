@@ -83,11 +83,9 @@ impl App {
 
         #[cfg(target_arch = "wasm32")]
         {
-            // connect js console logs
             std::panic::set_hook(Box::new(console_error_panic_hook::hook));
-            console_log::init_with_level(log::Level::Warn).unwrap();
+            console_log::init_with_level(log::Level::Info).unwrap();
 
-            // connect canvas
             use winit::platform::web::WindowExtWebSys;
 
             web_sys::window()
@@ -108,7 +106,7 @@ impl App {
     }
 
     fn resize(&mut self, width: u32, height: u32) {
-        info!("resizing window to {}x{}", width, height);
+        info!(target: "app", "resizing window to {}x{}", width, height);
 
         self.gpu.resize(width, height);
     }
