@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use log::info;
+use log::{error, info, warn};
 use winit::{
     application::ApplicationHandler,
     event::WindowEvent,
@@ -51,12 +51,31 @@ impl ApplicationHandler for AppState {
 
         match event {
             WindowEvent::Resized(physical_size) => {
-                let width = physical_size.width.max(1);
-                let height = physical_size.height.max(1);
-                app.resize(width, height);
+                app.resize(physical_size.width, physical_size.height);
             }
-            WindowEvent::CloseRequested | WindowEvent::Destroyed => event_loop.exit(),
-            WindowEvent::RedrawRequested => app.window.request_redraw(),
+            WindowEvent::CloseRequested => {
+                info!(target: "app", "close requested, exiting");
+                event_loop.exit();
+            }
+            WindowEvent::Destroyed => {
+                info!(target: "app", "window destroyed, exiting");
+                event_loop.exit();
+            }
+            WindowEvent::RedrawRequested => {
+                app.window.request_redraw();
+
+                match app.render() {
+                    Ok(_) => (),
+                    Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => todo!(),
+                    Err(wgpu::SurfaceError::Timeout) => {
+                        warn!(target: "app", "timeout while acquiring frame");
+                    }
+                    Err(wgpu::SurfaceError::OutOfMemory) => {
+                        error!(target: "app", "out of memory while acquiring frame");
+                        event_loop.exit();
+                    }
+                }
+            }
             _ => (),
         }
     }
@@ -109,5 +128,48 @@ impl App {
         info!(target: "app", "resizing window to {}x{}", width, height);
 
         self.gpu.resize(width, height);
+    }
+
+    fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
+        let surface_texture = self.gpu.surface.get_current_texture()?;
+        let target_view = surface_texture
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
+
+        let mut command_encoder =
+            self.gpu
+                .device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("render_encoder"),
+                });
+
+        {
+            let _render_pass = command_encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("render_pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &target_view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                            r: 0.1,
+                            g: 0.2,
+                            b: 0.3,
+                            a: 1.0,
+                        }),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                occlusion_query_set: None,
+                timestamp_writes: None,
+            });
+        }
+
+        self.gpu
+            .queue
+            .submit(std::iter::once(command_encoder.finish()));
+        surface_texture.present();
+
+        Ok(())
     }
 }
