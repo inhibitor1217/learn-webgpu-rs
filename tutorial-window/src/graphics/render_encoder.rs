@@ -21,7 +21,7 @@ impl<'a> RenderEncoder<'a> {
         render_target: &'b render_target::SurfaceRenderTarget,
         clear: Option<wgpu::Color>,
     ) -> render_pass::RenderPass<'b> {
-        render_pass::RenderPass::new(&mut self.encoder, render_target, clear)
+        render_pass::RenderPass::new(self.gpu, &mut self.encoder, render_target, clear)
     }
 
     pub fn finish(self) {
