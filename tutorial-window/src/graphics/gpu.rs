@@ -1,11 +1,11 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 pub struct Gpu {
     pub instance: wgpu::Instance,
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
     pub surface: wgpu::Surface<'static>,
-    pub surface_config: wgpu::SurfaceConfiguration,
+    pub surface_config: Mutex<wgpu::SurfaceConfiguration>,
 }
 
 impl Gpu {
@@ -65,6 +65,7 @@ impl Gpu {
             view_formats: vec![],
             desired_maximum_frame_latency: 2,
         };
+        let surface_config = Mutex::new(surface_config);
 
         let gpu = Self {
             instance,
@@ -74,8 +75,16 @@ impl Gpu {
             surface_config,
         };
 
-        gpu.surface.configure(&gpu.device, &gpu.surface_config);
+        gpu.surface
+            .configure(&gpu.device, &gpu.surface_config.lock().unwrap());
 
         gpu
+    }
+
+    pub fn resize(&self, width: u32, height: u32) {
+        let mut surface_config = self.surface_config.lock().unwrap();
+        surface_config.width = width;
+        surface_config.height = height;
+        self.surface.configure(&self.device, &surface_config);
     }
 }

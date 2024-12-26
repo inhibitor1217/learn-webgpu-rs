@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use log::info;
 use winit::{
     application::ApplicationHandler,
     event::WindowEvent,
@@ -33,13 +34,27 @@ impl ApplicationHandler for AppState {
         }
     }
 
-    fn window_event(&mut self, event_loop: &ActiveEventLoop, _: WindowId, event: WindowEvent) {
+    fn window_event(
+        &mut self,
+        event_loop: &ActiveEventLoop,
+        window_id: WindowId,
+        event: WindowEvent,
+    ) {
         let app = match self {
             AppState::Initialized(app) => app,
             AppState::Uninitialized => return,
         };
 
+        if window_id != app.window.id() {
+            return;
+        }
+
         match event {
+            WindowEvent::Resized(physical_size) => {
+                let width = physical_size.width.max(1);
+                let height = physical_size.height.max(1);
+                app.resize(width, height);
+            }
             WindowEvent::CloseRequested | WindowEvent::Destroyed => event_loop.exit(),
             WindowEvent::RedrawRequested => app.window.request_redraw(),
             _ => (),
@@ -90,5 +105,11 @@ impl App {
         let gpu = Arc::new(gpu);
 
         Self { window, gpu }
+    }
+
+    fn resize(&mut self, width: u32, height: u32) {
+        info!("resizing window to {}x{}", width, height);
+
+        self.gpu.resize(width, height);
     }
 }
