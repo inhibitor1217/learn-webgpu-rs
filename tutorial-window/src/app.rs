@@ -131,44 +131,12 @@ impl App {
     }
 
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
-        let surface_texture = self.gpu.surface.get_current_texture()?;
-        let target_view = surface_texture
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
+        let render_target = self.gpu.start_frame();
+        let mut render_encoder = self.gpu.render_encoder();
+        let _ = render_encoder.render_pass(&render_target, None);
 
-        let mut command_encoder =
-            self.gpu
-                .device
-                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                    label: Some("render_encoder"),
-                });
-
-        {
-            let _render_pass = command_encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("render_pass"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &target_view,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.1,
-                            g: 0.2,
-                            b: 0.3,
-                            a: 1.0,
-                        }),
-                        store: wgpu::StoreOp::Store,
-                    },
-                })],
-                depth_stencil_attachment: None,
-                occlusion_query_set: None,
-                timestamp_writes: None,
-            });
-        }
-
-        self.gpu
-            .queue
-            .submit(std::iter::once(command_encoder.finish()));
-        surface_texture.present();
+        render_encoder.finish();
+        render_target.finish();
 
         Ok(())
     }

@@ -1,5 +1,7 @@
 use std::sync::{Arc, Mutex};
 
+use super::{render_encoder, render_target};
+
 pub struct Gpu {
     pub instance: wgpu::Instance,
     pub device: wgpu::Device,
@@ -104,5 +106,37 @@ impl Gpu {
     fn surface_configure(&self) {
         let surface_config = self.surface_config.lock().unwrap();
         self.surface.configure(&self.device, &surface_config);
+    }
+
+    pub fn start_frame(&self) -> render_target::SurfaceRenderTarget {
+        let surface_texture = match self.surface.get_current_texture() {
+            Ok(f) => f,
+            Err(wgpu::SurfaceError::Timeout) => self
+                .surface
+                .get_current_texture()
+                .expect("failed to acquire surface texture due to timeout"),
+            Err(wgpu::SurfaceError::OutOfMemory) => {
+                panic!("failed to acquire surface texture due to out of memory")
+            }
+            Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
+                self.surface_configure();
+                self.surface
+                    .get_current_texture()
+                    .expect("failed to acquire surface texture after reconfiguration")
+            }
+        };
+
+        let target_view = surface_texture
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
+
+        render_target::SurfaceRenderTarget {
+            surface_texture,
+            target_view,
+        }
+    }
+
+    pub fn render_encoder(&self) -> render_encoder::RenderEncoder {
+        render_encoder::RenderEncoder::new(self)
     }
 }
